@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sudoku - Strategy & Logic</title>
+    <style>
+/* Keeping your original Root for the Nav only */
+:root {
+    --bg: #e6f3ff;
+    --text: #1e3a5f;
+    --accent: #b3d9ff;
+    --border: #a0c4ff;
+    --font-main: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    
+    /* NEW Game Theme: "Neon Strategy" */
+    --game-bg: #0f172a;
+    --game-accent: #38bdf8;
+    --game-error: #f43f5e;
+    --game-success: #10b981;
+    --cell-bg: #1e293b;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+    font-family: var(--font-main);
+    background-color: var(--bg);
+    color: var(--text);
+}
+
+/* Professional Nav (Stays original theme) */
+nav { 
+    display: flex; 
+    justify-content: space-between; 
+    align-items: center; 
+    padding: 1.5rem 10%; 
+    background-color: white; 
+    border-bottom: 1px solid var(--border); 
+}
+nav ul { display: flex; list-style: none; }
+nav ul li { margin-left: 2rem; }
+nav a { text-decoration: none; color: var(--text); font-weight: 500; }
+
+/* AWESOME Game Section */
+#game-section {
+    background-color: var(--game-bg);
+    color: white;
+    padding: 4rem 1rem;
+    min-height: 100vh;
+    text-align: center;
+}
+
+#game-section h2 { font-size: 2.5rem; color: var(--game-accent); margin-bottom: 0.5rem; }
+#game-section p { margin-bottom: 2rem; opacity: 0.8; }
+
+#grid {
+    display: grid;
+    grid-template-columns: repeat(9, 50px);
+    grid-template-rows: repeat(9, 50px);
+    border: 4px solid var(--game-accent);
+    margin: 0 auto;
+    width: fit-content;
+    box-shadow: 0 0 20px rgba(56, 189, 248, 0.3);
+}
+
+#grid input {
+    width: 50px;
+    height: 50px;
+    text-align: center;
+    font-size: 1.4rem;
+    border: 0.5px solid #334155;
+    outline: none;
+    color: white;
+    background: var(--cell-bg);
+    transition: all 0.2s;
+}
+
+/* Hover & Focus effects */
+#grid input:focus { background: #334155; box-shadow: inset 0 0 10px var(--game-accent); }
+
+/* Highlight starting numbers */
+#grid input[readonly] {
+    color: var(--game-accent);
+    font-weight: 800;
+    background: #0f172a;
+}
+
+/* 3x3 Block Borders */
+#grid input:nth-child(3n) { border-right: 3px solid var(--game-accent); }
+#grid input:nth-child(9n) { border-right: 0.5px solid #334155; }
+#grid input:nth-child(n+19):nth-child(-n+27),
+#grid input:nth-child(n+46):nth-child(-n+54) { border-bottom: 3px solid var(--game-accent); }
+
+.game-controls { margin-top: 2rem; }
+
+.game-controls button {
+    padding: 0.8rem 1.5rem;
+    font-weight: bold;
+    text-transform: uppercase;
+    border: 2px solid var(--game-accent);
+    background: transparent;
+    color: var(--game-accent);
+    cursor: pointer;
+    margin: 0 0.5rem;
+    border-radius: 4px;
+    transition: 0.3s;
+}
+
+.game-controls button:hover {
+    background: var(--game-accent);
+    color: var(--game-bg);
+    box-shadow: 0 0 15px var(--game-accent);
+}
+
+.result-msg { margin-top: 1.5rem; font-weight: bold; height: 1.5rem; }
+    </style>
+</head>
+<body>
+
+    <nav>
+        <div class="logo">CC</div>
+        <ul>
+            <li><a href="index.html">Home</a></li>
+            <li><a href="resume.html">Resume</a></li>
+            <li><a href="projects.html">Projects</a></li>
+            <li><a href="sudoku.html">Game</a></li>
+            <li><a href="travel.html">Travel</a></li>
+            <li><a href="contact.html">Contact</a></li>
+        </ul>
+    </nav>
+
+    <section id="game-section">
+        <h2>SUDOKU.CORE</h2>
+        <p>A high-performance logic challenge for Strategic Management minds.</p>
+        
+        <div id="grid"></div>
+        
+        <div class="game-controls">
+            <button onclick="clearGrid()">Reset</button>
+            <button onclick="checkResult()">Validate Solution</button>
+        </div>
+        <div id="message" class="result-msg"></div>
+    </section>
+
+    <script>
+const grid = document.getElementById('grid');
+const message = document.getElementById('message');
+
+const puzzle = [
+    [5,3,0,0,7,0,0,0,0], [6,0,0,1,9,5,0,0,0], [0,9,8,0,0,0,0,6,0],
+    [8,0,0,0,6,0,0,0,3], [4,0,0,8,0,3,0,0,1], [7,0,0,0,2,0,0,0,6],
+    [0,6,0,0,0,0,2,8,0], [0,0,0,4,1,9,0,0,5], [0,0,0,0,8,0,0,7,9]
+];
+
+// The correct solution for this specific puzzle
+const solution = [
+    [5,3,4,6,7,8,9,1,2], [6,7,2,1,9,5,3,4,8], [1,9,8,3,4,2,5,6,7],
+    [8,5,9,7,6,1,4,2,3], [4,2,6,8,5,3,7,9,1], [7,1,3,9,2,4,8,5,6],
+    [9,6,1,5,3,7,2,8,4], [2,8,7,4,1,9,6,3,5], [3,4,5,2,8,6,1,7,9]
+];
+
+function createBoard() {
+    grid.innerHTML = '';
+    for (let i = 0; i < 81; i++) {
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.maxLength = 1;
+        const row = Math.floor(i / 9);
+        const col = i % 9;
+        const val = puzzle[row][col];
+        
+        if (val !== 0) {
+            input.value = val;
+            input.readOnly = true;
+        }
+        input.oninput = function() { this.value = this.value.replace(/[^1-9]/g, ''); };
+        grid.appendChild(input);
+    }
+}
+
+function checkResult() {
+    const inputs = document.querySelectorAll('#grid input');
+    let isCorrect = true;
+    let isFull = true;
+
+    inputs.forEach((input, i) => {
+        const row = Math.floor(i / 9);
+        const col = i % 9;
+        const val = parseInt(input.value);
+
+        if (!val) isFull = false;
+        if (val !== solution[row][col]) {
+            isCorrect = false;
+            if (val) input.style.color = 'var(--game-error)';
+        } else {
+            input.style.color = input.readOnly ? 'var(--game-accent)' : 'white';
+        }
+    });
+
+    if (!isFull) {
+        message.innerText = "The board is not yet complete.";
+        message.style.color = "orange";
+    } else if (isCorrect) {
+        message.innerText = "STRATEGY CONFIRMED: Solution is correct!";
+        message.style.color = "var(--game-success)";
+        grid.style.boxShadow = "0 0 30px var(--game-success)";
+    } else {
+        message.innerText = "LOGIC ERROR: Some numbers are incorrect.";
+        message.style.color = "var(--game-error)";
+    }
+}
+
+function clearGrid() {
+    createBoard();
+    message.innerText = '';
+    grid.style.boxShadow = "0 0 20px rgba(56, 189, 248, 0.3)";
+}
+
+createBoard();
+    </script>
+</body>
+</html>
